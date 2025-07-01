@@ -36,6 +36,11 @@ Use the `-e` flag for a custom profile like `production`:
 
     docker container run -e PROFILE=production -v /path/to/your/project:/app -w /app -it eas-like-local-builder
 
+#### Remember expo auth 🔒
+
+    docker volume create expo-data
+    docker container run -e PROFILE=production -v expo-data:/root/.expo -v /path/to/your/project:/app -w /app -it eas-like-local-builder
+
 #### Control VCS Behavior 🚫
 
 To skip version control system (VCS) checks during the build (handy if you’re working without a Git repo), set `EAS_NO_VCS`:
