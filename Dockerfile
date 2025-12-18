@@ -7,6 +7,7 @@ ENV PATH $PATH:$JAVA_HOME/bin
 # Install essential packages and Java 17
 RUN apt-get update && apt-get install -y \
     wget \
+    curl \
     unzip \
     build-essential \
     openjdk-17-jdk \
@@ -18,19 +19,6 @@ RUN apt-get update && apt-get install -y \
 RUN add-apt-repository ppa:git-core/ppa
 # Update package list and install the latest stable Git version
 RUN apt-get update && apt-get install -y git
-
-# Install Node.js 18.18.0
-RUN wget https://nodejs.org/dist/v18.18.0/node-v18.18.0-linux-x64.tar.xz \
-    && tar -xJf node-v18.18.0-linux-x64.tar.xz -C /usr/local --strip-components=1 \
-    && rm node-v18.18.0-linux-x64.tar.xz
-
-# Update npm to 9.8.1 and install Yarn, pnpm, node-gyp, and eas-cli
-RUN npm install -g npm@9.8.1 \
-    && npm install -g yarn@1.22.21 pnpm@9.3.0 node-gyp@10.1.0 eas-cli
-
-# Install Bun 1.1.13 using wget
-ENV BUN_INSTALL /usr/local
-RUN wget -qO- https://bun.sh/install | bash -s "bun-v1.1.13"
 
 # Install Android NDK r26b
 RUN wget https://dl.google.com/android/repository/android-ndk-r26b-linux.zip \
@@ -50,9 +38,45 @@ RUN wget https://dl.google.com/android/repository/commandlinetools-linux-7583922
 ENV ANDROID_HOME /opt/android-sdk
 ENV PATH $PATH:$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools
 
+#To skip version control system (VCS) checks during the build (handy if you’re working without a Git repo)
+ENV EAS_NO_VCS=1
+
 # Install required Android SDK components
 RUN yes | sdkmanager --licenses \
     && sdkmanager "platform-tools" "platforms;android-33" "build-tools;33.0.0"
 
+#Install NVM
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+# Create a script file sourced by both interactive and non-interactive bash shells
+ENV BASH_ENV /root/.bash_env
+RUN touch "${BASH_ENV}"
+RUN echo '. "${BASH_ENV}"' >> ~/.bashrc
+
+# Download and install nvm
+RUN curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh | PROFILE="${BASH_ENV}" bash
+RUN echo node > .nvmrc
+
+# Install Node.js 18.18.0
+# RUN wget https://nodejs.org/dist/v18.18.0/node-v18.18.0-linux-x64.tar.xz \
+#     && tar -xJf node-v18.18.0-linux-x64.tar.xz -C /usr/local --strip-components=1 \
+#     && rm node-v18.18.0-linux-x64.tar.xz
+
+RUN nvm install 20 \
+    && nvm use 20
+
+# Update npm to 9.8.1 and install Yarn, pnpm, node-gyp, and eas-cli
+RUN npm install -g npm@9.8.1 \
+    && npm install -g yarn@1.22.21 pnpm@9.3.0 node-gyp@10.1.0 eas-cli
+
+# Install Bun 1.1.13 using wget
+ENV BUN_INSTALL /usr/local
+RUN wget -qO- https://bun.sh/install | bash -s "bun-v1.1.13"
+
+RUN yarn install
+
 # Hardcode the EAS build command with a default profile
-CMD ["bash", "-c", "eas build --platform android --local --profile ${PROFILE:-development}"]
+#CMD ["bash", "-c", "eas build --platform android --local --profile ${PROFILE:-development}"]
+
+# Replace the CMD with ENTRYPOINT to allow both default command and interactive shell
+ENTRYPOINT ["bash"]

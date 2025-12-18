@@ -1,0 +1,12 @@
+version: '3.8'
+services:
+  expo-builder:
+    build: .
+    volumes:
+      - ./:/workspace
+      - /home/kali/.cache/expo-data:/root/.expo
+    working_dir: /workspace
+    environment:
+      - PROFILE=development
+    stdin_open: true
+    tty: true
