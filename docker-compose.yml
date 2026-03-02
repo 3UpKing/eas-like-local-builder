@@ -4,9 +4,9 @@ services:
     build: .
     volumes:
       - ./:/workspace
-      - /home/kali/.cache/expo-data:/root/.expo
+      - ${HOME}/.cache/expo-data:/root/.expo # persist expo auth creds
     working_dir: /workspace
     environment:
-      - PROFILE=development
+      - PROFILE=development # development|production
     stdin_open: true
     tty: true

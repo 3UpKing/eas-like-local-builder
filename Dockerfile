@@ -78,5 +78,5 @@ RUN yarn install
 # Hardcode the EAS build command with a default profile
 #CMD ["bash", "-c", "eas build --platform android --local --profile ${PROFILE:-development}"]
 
-# Replace the CMD with ENTRYPOINT to allow both default command and interactive shell
+# Replace the CMD with ENTRYPOINT to allow interactive shell
 ENTRYPOINT ["bash"]
