@@ -63,11 +63,13 @@ eas login
  
 ```bash
 eas build --platform android --local --profile ${PROFILE:-development}
+exit
 ```
 
-4) Convert AAB -> APKS
+4) Convert AAB -> APKS (Outside the docker container)
 
 ```bash
+chmod +x ./build_apks.sh
 ./build_apks.sh <input.aab> <output.apks> <keystore.jks> <alias>
 ```
 
