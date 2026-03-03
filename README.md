@@ -12,120 +12,85 @@ EAS cloud builds can add cost, while local builds usually need a lot of setup. T
 Reference:
 - https://docs.expo.dev/build-reference/infrastructure/#ubuntu-2204-jdk-17-ndk-r26b-latest-sdk-51-sdk-52
 
-## How the build process works
+## Prerequisites (host machine, outside Docker)
 
-1. Build/run the Docker environment.
-2. Log in to Expo/EAS inside the container.
-3. Run local EAS Android build with the `production` profile.
-4. EAS produces an Android App Bundle (`.aab`).
-5. Run `build_apks.sh` to convert `.aab` to a universal `.apks` archive.
-6. Either unzip `.apks` and use `universal.apk` manually, or pass `--install` to install with `adb`.
+Install these on your local machine:
+- Docker Engine (or Docker Desktop)
+- Docker Compose (`docker compose`)
+- Java JDK (`java`) to run `bundletool.jar` via `build_apks.sh`
+- `keytool` (usually part of JDK) if you need to create a new signing keystore
+- `unzip` to manually extract `.apks`
+- Android Platform Tools (`adb`) if you want to install the generated `universal.apk`
 
-## What is inside this environment
+Also required for install steps:
+- An Android device/emulator with USB debugging enabled
 
-From this repo Dockerfile:
-- Ubuntu 22.04 (Jammy)
-- OpenJDK 17
-- Android NDK r26b
-- Android SDK: `platform-tools`, `platforms;android-33`, `build-tools;33.0.0`
-- Node.js 20 (via nvm)
-- npm 9.8.1
-- Yarn 1.22.21
-- pnpm 9.3.0
-- Bun 1.1.13
-- node-gyp 10.1.0
-- Git
-- EAS CLI
-- `EAS_NO_VCS=1` set in the image
+## Quick command summary
 
-## Get started
+0) Create a local keystore (if you do not have one)
 
-### Option 1: Use Docker Compose (recommended for this repo)
+```bash
+keytool -genkeypair \
+  -v \
+  -storetype JKS \
+  -keystore my-release-key.jks \
+  -alias my_key_alias \
+  -keyalg RSA \
+  -keysize 2048 \
+  -validity 10000
+```
 
-Build the image:
+Use `my-release-key.jks` as `<keystore>` and `my_key_alias` as `<alias>`.
+
+1) Build image
 
 ```bash
 docker compose build
 ```
 
-### Expo login first (required)
-
-Start an interactive container shell:
+2) Login once (required)
 
 ```bash
-docker compose run --rm expo-builder bash
+docker compose up -d -name expo-builder  # Make sure you mount the directory with your source code as a volume to /workspace inside the container
+docker exec -it expo-builder bash 
 ```
 
-Then authenticate:
-
 ```bash
-expo login
-# or
 eas login
 ```
 
-Exit when done:
-
-```bash
-exit
-```
-
-`docker-compose.yml` mounts `${HOME}/.cache/expo-data` to `/root/.expo`, so auth is persisted between runs.
-
-### Build production AAB
-
-```bash
-docker compose run --rm -e PROFILE=production expo-builder
-```
-
-Default container command:
-
+3) Build production AAB (run inside the container)
+ 
 ```bash
 eas build --platform android --local --profile ${PROFILE:-development}
 ```
 
-For this flow, always use `PROFILE=production`.
-
-### Option 2: Use `docker run` directly
-
-Pull image:
+4) Convert AAB -> APKS
 
 ```bash
-docker pull erayalakese/eas-like-local-builder
+./build_apks.sh <input.aab> <output.apks> <keystore.jks> <alias>
 ```
 
-Or build locally:
+Example:
 
 ```bash
-docker build -t eas-like-local-builder .
+./build_apks.sh build-1234567890.aab output.apks my-release-key.jks my_key_alias
 ```
 
-Run production build:
+5a) Manual install path
 
 ```bash
-docker container run \
-  -e PROFILE=production \
-  -v /path/to/your/project:/app \
-  -w /app \
-  -it eas-like-local-builder
+unzip -o <output.apks> -d ./apks-out
 ```
 
-Persist Expo auth with a named volume:
-
 ```bash
-docker volume create expo-data
-docker container run \
-  -e PROFILE=production \
-  -v expo-data:/root/.expo \
-  -v /path/to/your/project:/app \
-  -w /app \
-  -it eas-like-local-builder
+adb install ./apks-out/universal.apk
 ```
 
-Override command for login or custom commands:
+5b) Install directly via script
 
 ```bash
-docker container run -it -v /path/to/your/project:/app -w /app eas-like-local-builder eas login
+./build_apks.sh <input.aab> <output.apks> <keystore.jks> <alias> --install
 ```
 
 ## How `build_apks.sh` works
@@ -167,8 +132,6 @@ After creation, use:
 - `my-release-key.jks` as the `<keystore>` argument
 - `my_key_alias` as the `<alias>` argument
 
-## How to use the script properly
-
 ### Make `.apks` from a production `.aab`
 
 ```bash
@@ -196,31 +159,6 @@ adb install ./apks-out/universal.apk
 - `-it`: interactive terminal (needed for login/input)
 - `-e PROFILE=production`: select build profile
 - `-e EAS_NO_VCS=1`: disable VCS checks when needed
-
-## Quick command summary
-
-```bash
-# 1) Build image
-docker compose build
-
-# 2) Login once (required)
-docker compose run --rm expo-builder bash
-eas login
-exit
-
-# 3) Build production AAB
-docker compose run --rm -e PROFILE=production expo-builder
-
-# 4) Convert AAB -> APKS
-./build_apks.sh <input.aab> <output.apks> <keystore.jks> <alias>
-
-# 5a) Manual install path
-unzip -o <output.apks> -d ./apks-out
-adb install ./apks-out/universal.apk
-
-# 5b) Or install directly via script
-./build_apks.sh <input.aab> <output.apks> <keystore.jks> <alias> --install
-```
 
 ## Disclaimer
 
